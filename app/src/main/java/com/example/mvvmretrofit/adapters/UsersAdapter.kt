@@ -14,7 +14,6 @@ import com.example.mvvmretrofit.R
 import com.example.mvvmretrofit.interfaces.GenericAdapterCallback
 import com.example.mvvmretrofit.models.UsersDC
 
-
 class UsersAdapter(
     var list: List<UsersDC.Data>,
     var context: Context,

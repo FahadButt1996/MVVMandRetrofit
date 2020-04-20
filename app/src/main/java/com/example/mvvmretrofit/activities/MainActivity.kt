@@ -2,41 +2,57 @@ package com.example.mvvmretrofit.activities
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Observer
-import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.ViewModelProviders
 import com.example.mvvmretrofit.R
 import com.example.mvvmretrofit.adapters.UsersAdapter
 import com.example.mvvmretrofit.interfaces.GenericAdapterCallback
 import com.example.mvvmretrofit.models.UsersDC
-import com.example.mvvmretrofit.utilities.*
-import com.example.mvvmretrofit.viewModels.MainViewModel
+import com.example.mvvmretrofit.repository.UserRepository
+import com.example.mvvmretrofit.utilities.hideProgressDialog
+import com.example.mvvmretrofit.utilities.showProgressDialog
+import com.example.mvvmretrofit.utilities.showToast
+import com.example.mvvmretrofit.viewModels.UserViewModel
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
 
-class MainActivity : AppCompatActivity(), GenericAdapterCallback {
+class MainActivity : AppCompatActivity(), GenericAdapterCallback, CoroutineScope {
 
-    lateinit var mainViewModel: MainViewModel
+    private val compositeJob = Job()
+    override val coroutineContext: CoroutineContext
+        get() = Dispatchers.Main + compositeJob
+
+    lateinit var mainViewModel: UserViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        mainViewModel = ViewModelProviders.of(this@MainActivity).get(MainViewModel::class.java)
-
-        getUserData()
+        initData()
+        getUsers()
     }
 
-    private fun getUserData() {
-        if(checkNetworkConnectivity(this@MainActivity)) {
-            showProgressDialog(this)
-            mainViewModel.callUsersApi().observe(ProcessLifecycleOwner.get(), Observer { userData ->
-                if (userData != null && !userData.data.isNullOrEmpty()) {
-                    setUserRecyclerView(userData.data)
-                }
-                hideProgressDialog()
-            })
-        } else {
-            showToast(CHECK_INTERNET)
+    private fun initData() {
+        mainViewModel = ViewModelProviders.of(
+            this,
+            UserViewModel.UserViewModelFactory(
+                UserRepository()
+            )
+        ).get(UserViewModel::class.java)
+    }
+
+    private fun getUsers() {
+        showProgressDialog(this)
+        launch {
+            val userData = mainViewModel.getUsers()
+            hideProgressDialog()
+            if (userData != null && !userData.data.isNullOrEmpty()) {
+                setUserRecyclerView(userData.data)
+            }
         }
+
     }
 
     fun setUserRecyclerView(userData: List<UsersDC.Data>) {
@@ -46,7 +62,6 @@ class MainActivity : AppCompatActivity(), GenericAdapterCallback {
     }
 
 
-    // for handling the clicks of Recyclerview
     override fun <T> getClickedObject(clickedObj: T, position: T, callingID: String) {
         when (callingID) {
             "User" -> {
@@ -54,5 +69,9 @@ class MainActivity : AppCompatActivity(), GenericAdapterCallback {
                 showToast("${data.first_name} ${data.last_name}")
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 }
